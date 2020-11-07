@@ -1,0 +1,148 @@
+---
+title: "longitudinal blood count visualization"
+author: "Adar Yaacov"
+date: "5 11 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(reshape2)
+library(pheatmap)
+library(gridExtra)
+
+```
+
+plots functions functions
+```{r, include= FALSE}
+
+plot_cbc <- function(df,id){
+  
+  p <- ggplot(melt(df[,1:21], id.vars = "Date")) +
+    geom_line(aes(x=Date, y=value, color=variable), size = 2) + 
+    geom_point(aes(x=Date, y=value), size = 1.75, alpha = 0.5) + 
+    scale_x_date(date_labels = "%m/%Y", date_breaks = "3 month")+
+    scale_y_continuous(name = "Standardized values", limits = c(-3,6)) +
+    theme_classic()+
+    ggtitle(id)+
+    theme(
+      axis.text.x = element_text(size = 11, face = "bold", angle = 45, hjust =1),
+      axis.title.x = element_blank(),
+      axis.text.y = element_text(size = 13, face = "bold"),
+      axis.title.y = element_text(size = 13, face = "bold"),
+      legend.title = element_blank(),
+      legend.position = "none",
+      plot.title = element_text(size = 15, face = "bold", hjust = 0.5)
+  )
+  return(p)
+}
+
+heatmap_cbc <- function(sample, scaled, id){
+  for_heat <- scaled[,2:21]
+
+  if(sum(sample[,21] > 0)){
+    h <- pheatmap(t(for_heat), labels_col = scaled[,1], cluster_rows = T, cluster_cols = F, border_color = F, main = id, fontsize = 20)
+  }
+  else{
+     h <- pheatmap(t(for_heat), cluster_rows = F, labels_col = scaled[,1], cluster_cols = F, border_color = F, main = id, fontsize = 20)
+  }
+  return(h)
+}
+
+```
+
+One sample example
+```{r, include= FALSE}
+
+one_sample_fun <- function(path, id){ # full path to csv contains the relevant info, or uploaded df
+  if(class(path)=="character"){
+      sample <- read.csv(paste0(full_path,".csv"), header = T, stringsAsFactors = F)
+  }
+  else{
+    sample <- as.data.frame(path)
+  }
+  
+  colnames(sample)[1] <- "Date" 
+  sample$Date <- as.Date(sample$Date, format = "%d/%m/%Y") #need to verify all samples are in this format !
+  
+  #see if there are duplicates dates
+  remember <- 0
+  if(length(unique(sample$Date)) == nrow(sample)){
+    print("Dates are fine")
+    }
+  else {
+  print(paste("There are",nrow(sample)-length(unique(sample$Date)), "tests from the same day"))
+    remember <- 1
+  }
+  
+  #see if, where and how many NA values present
+  for(i in 1:ncol(sample)){
+  n <- 0
+    for(j in 1:nrow(sample)){
+      if(is.na(sample[j,i])){
+        n <- n+1
+      }
+    }
+    if(n > 0){
+      print(paste("feature", colnames(sample)[i], "has NA values in", n, "rows"))
+      }
+  }
+  
+  #scaling the CBC features by standartizaion
+  scaled <- cbind(sample$Date, as.data.frame(scale(sample[,2:21])))#, sample[,22:23])
+  colnames(scaled)[1] <- "Date"
+  
+  #ggplot
+  p <- plot_cbc(scaled, id)
+  
+  png(paste0(id,"_heatmap.png"), 1200, 600)
+  heatmap_cbc(sample, scaled, id)
+  dev.off()
+  
+  return(p)
+}
+
+```
+
+Multiple samples
+```{r, include= FALSE}
+
+multiple_samples <- function(mult_df){
+  nested_list <- list()
+  if(class(mult_df)=="character"){
+    all <- read.csv(paste0(mult_df,".csv"),header = T, stringsAsFactors = F)[,c(-1,-13, -25,-26)] #remove name, retic, esr, empty column
+  }
+  else{
+    all <- mult_df
+  }
+  
+  # turn problematic values to NA and all columns to numeric
+  for(j in 1:(ncol(all)-2)){
+    all[,j+2] <- as.numeric(all[,j+2])
+  }
+      
+  for(i in 1:length(unique(all$ID))){
+    sample <- all[all$ID == unique(all$ID)[i],-1] #take one ID, without the ID column
+    id <- all[all$ID == unique(all$ID)[i],1] #take onlt the ID
+    #print(nrow(sample))
+    #print(id)
+
+    nested_list[[i]] <- one_sample_fun(sample, id)
+  }
+  return(nested_list)
+}
+
+multiple_samples("cbc_final")
+
+```
+
+grid scatter plots
+```{r, include=FALSE}
+
+grid.arrange(a[[1]],a[[2]],a[[3]],a[[4]],a[[5]],a[[6]],a[[7]],a[[8]],a[[9]],a[[10]],a[[11]],a[[12]],a[[13]],a[[14]],a[[15]],a[[16]])
+
+grid.arrange(a[[1]],a[[2]],a[[3]],a[[4]],a[[5]],a[[6]],a[[7]],a[[8]])
+
+```
