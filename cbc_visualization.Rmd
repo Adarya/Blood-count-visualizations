@@ -15,34 +15,42 @@ library(gridExtra)
 
 ```
 
-plots functions functions
+plots functions
 ```{r, include= FALSE}
 
-plot_cbc <- function(df,id){
+plot_cbc <- function(df,id){ 
+  
+  #Creates a highly costumized connected-scatter plot for longitudinal
+  #blood samples, chronologically
   
   p <- ggplot(melt(df[,1:21], id.vars = "Date")) +
     geom_line(aes(x=Date, y=value, color=variable), size = 2) + 
     geom_point(aes(x=Date, y=value), size = 1.75, alpha = 0.5) + 
-    scale_x_date(date_labels = "%m/%Y", date_breaks = "3 month")+
-    scale_y_continuous(name = "Standardized values", limits = c(-3,6)) +
-    theme_classic()+
-    ggtitle(id)+
+    scale_x_date(date_labels = "%m/%Y", date_breaks = "3 month") + 
+    scale_y_continuous(name = "Standardized values", limits = c(-3,6)) + 
+    theme_classic() +
+    ggtitle(id) +
     theme(
       axis.text.x = element_text(size = 11, face = "bold", angle = 45, hjust =1),
       axis.title.x = element_blank(),
       axis.text.y = element_text(size = 13, face = "bold"),
       axis.title.y = element_text(size = 13, face = "bold"),
       legend.title = element_blank(),
-      legend.position = "none",
+      legend.position = "none", #This could be easily changed if one needs a legend
       plot.title = element_text(size = 15, face = "bold", hjust = 0.5)
   )
   return(p)
 }
 
-heatmap_cbc <- function(sample, scaled, id){
-  for_heat <- scaled[,2:21]
 
-  if(sum(sample[,21] > 0)){
+heatmap_cbc <- function(sample, scaled, id){
+  
+  #Creates a costumized heatmaps for cbc values by dates
+  
+  for_heat <- scaled[,2:21]
+  
+  #Check if BA# is 0 in all dates, if so - heatmap won't be clustered
+  if(sum(sample[,21] > 0)){  
     h <- pheatmap(t(for_heat), labels_col = scaled[,1], cluster_rows = T, cluster_cols = F, border_color = F, main = id, fontsize = 20)
   }
   else{
@@ -53,10 +61,11 @@ heatmap_cbc <- function(sample, scaled, id){
 
 ```
 
-One sample example
+One sample 
 ```{r, include= FALSE}
 
 one_sample_fun <- function(path, id){ # full path to csv contains the relevant info, or uploaded df
+  
   if(class(path)=="character"){
       sample <- read.csv(paste0(full_path,".csv"), header = T, stringsAsFactors = F)
   }
@@ -91,12 +100,13 @@ one_sample_fun <- function(path, id){ # full path to csv contains the relevant i
   }
   
   #scaling the CBC features by standartizaion
-  scaled <- cbind(sample$Date, as.data.frame(scale(sample[,2:21])))#, sample[,22:23])
+  scaled <- cbind(sample$Date, as.data.frame(scale(sample[,2:21])))
   colnames(scaled)[1] <- "Date"
   
-  #ggplot
+  #ggplot lined-scatter plot
   p <- plot_cbc(scaled, id)
   
+  #heatmap saved as png  
   png(paste0(id,"_heatmap.png"), 1200, 600)
   heatmap_cbc(sample, scaled, id)
   dev.off()
@@ -111,6 +121,8 @@ Multiple samples
 
 multiple_samples <- function(mult_df){
   nested_list <- list()
+  
+  #input could be either a .csv file or a cleaner data.frame already loaded to R
   if(class(mult_df)=="character"){
     all <- read.csv(paste0(mult_df,".csv"),header = T, stringsAsFactors = F)[,c(-1,-13, -25,-26)] #remove name, retic, esr, empty column
   }
@@ -126,15 +138,23 @@ multiple_samples <- function(mult_df){
   for(i in 1:length(unique(all$ID))){
     sample <- all[all$ID == unique(all$ID)[i],-1] #take one ID, without the ID column
     id <- all[all$ID == unique(all$ID)[i],1] #take onlt the ID
-    #print(nrow(sample))
-    #print(id)
+
 
     nested_list[[i]] <- one_sample_fun(sample, id)
   }
+  
   return(nested_list)
 }
+```
 
+Run example
+
+```{r, include=FALSE}
 multiple_samples("cbc_final")
+
+#or
+
+a <- multiple_samples("cbc_final")
 
 ```
 
